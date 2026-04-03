@@ -21,7 +21,24 @@ initializeDatabase($pdo);
 // Match routes and handle requests
 
 if (preg_match('#^/api/zones/?$#', $path)) {
-    $summaryQuery = $pdo->query('SELECT id, name, type, status FROM parking_zones ORDER BY id');
+    $q = trim((string) ($_GET['q'] ?? ''));
+
+    if ($q !== '') {
+        $summaryQuery = $pdo->prepare(
+            "SELECT id, name, type, status
+             FROM parking_zones
+             WHERE name LIKE :search COLLATE NOCASE
+             ORDER BY id ASC"
+        );
+        $summaryQuery->execute(['search' => '%' . $q . '%']);
+    } else {
+        $summaryQuery = $pdo->query(
+            "SELECT id, name, type, status
+             FROM parking_zones
+             ORDER BY id ASC"
+        );
+    }
+
     $zones = $summaryQuery->fetchAll(PDO::FETCH_ASSOC);
 
     respondJson($zones, 200);
