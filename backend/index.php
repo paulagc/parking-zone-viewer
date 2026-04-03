@@ -1,0 +1,216 @@
+<?php
+declare(strict_types=1);
+
+// Read request and open db connection
+
+header('Content-Type: application/json; charset=utf-8');
+
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+$path = getRequestPath();
+
+if ($method !== 'GET') {
+    respondJson(['error' => 'Method Not Allowed'], 405);
+}
+
+$pdo = getPdoConnection();
+initializeDatabase($pdo);
+
+
+// Match routes and handle requests
+
+if (preg_match('#^/api/zones/?$#', $path)) {
+    $summaryQuery = $pdo->query('SELECT id, name, type, status FROM parking_zones ORDER BY id');
+    $zones = $summaryQuery->fetchAll(PDO::FETCH_ASSOC);
+
+    respondJson($zones, 200);
+}
+
+if (preg_match('#^/api/zones/(\d+)/?$#', $path, $matches)) {
+    $zoneId = (int) $matches[1];
+
+    $detailQuery = $pdo->prepare('SELECT * FROM parking_zones WHERE id = :id');
+    $detailQuery->execute(['id' => $zoneId]);
+
+    $zone = $detailQuery->fetch(PDO::FETCH_ASSOC);
+
+    if (!$zone) {
+        respondJson(['error' => 'Zone not found'], 404);
+    }
+
+    $zone['id'] = (int) $zone['id'];
+    $zone['max_capacity'] = (int) $zone['max_capacity'];
+    $zone['hourly_rate_eur'] = (float) $zone['hourly_rate_eur'];
+    $zone['latitude'] = (float) $zone['latitude'];
+    $zone['longitude'] = (float) $zone['longitude'];
+    $zone['amenities'] = json_decode((string) $zone['amenities'], true, 512, JSON_THROW_ON_ERROR);
+    $zone['opening_hours'] = json_decode((string) $zone['opening_hours'], true, 512, JSON_THROW_ON_ERROR);
+
+    respondJson($zone, 200);
+}
+
+respondJson(['error' => 'Not Found'], 404);
+
+function getRequestPath(): string
+{
+    $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
+    $path = parse_url($requestUri, PHP_URL_PATH) ?: '/';
+
+    $basePath = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+
+    if ($basePath !== '' && $basePath !== '/' && str_starts_with($path, $basePath)) {
+        $path = substr($path, strlen($basePath));
+    }
+
+    return $path === '' ? '/' : $path;
+}
+
+function getPdoConnection(): PDO
+{
+    $dbDir = __DIR__ . '/database';
+
+    if (!is_dir($dbDir)) {
+        mkdir($dbDir, 0777, true);
+    }
+
+    $pdo = new PDO('sqlite:' . $dbDir . '/parkman.sqlite');
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+
+    return $pdo;
+}
+
+function initializeDatabase(PDO $pdo): void
+{
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS parking_zones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL,
+            status TEXT NOT NULL,
+            description TEXT NOT NULL,
+            max_capacity INTEGER NOT NULL,
+            hourly_rate_eur REAL NOT NULL,
+            latitude REAL NOT NULL,
+            longitude REAL NOT NULL,
+            amenities TEXT NOT NULL,
+            opening_hours TEXT NOT NULL
+        )'
+    );
+
+    $existingCount = (int) $pdo->query('SELECT COUNT(*) FROM parking_zones')->fetchColumn();
+
+    if ($existingCount > 0) {
+        return;
+    }
+
+    $seedZones = [
+        [
+            'name' => 'Kamppi Center',
+            'type' => 'commercial',
+            'status' => 'active',
+            'description' => 'Underground parking facility in the heart of Helsinki with EV charging and 24/7 access.',
+            'max_capacity' => 450,
+            'hourly_rate_eur' => 4.50,
+            'latitude' => 60.1685,
+            'longitude' => 24.9318,
+            'amenities' => ['EV Charging', 'Disabled Access', '24/7 Open', 'Security Cameras'],
+            'opening_hours' => ['weekdays' => '06:00–23:00', 'weekends' => '08:00–23:00'],
+        ],
+        [
+            'name' => 'Esplanadi Park',
+            'type' => 'street',
+            'status' => 'active',
+            'description' => 'Street-side paid parking zone near Esplanadi with short-walk access to central shopping and offices.',
+            'max_capacity' => 120,
+            'hourly_rate_eur' => 3.80,
+            'latitude' => 60.1676,
+            'longitude' => 24.9450,
+            'amenities' => ['Pay-by-App', 'Wheelchair Access', 'Well Lit'],
+            'opening_hours' => ['weekdays' => '07:00–22:00', 'weekends' => '09:00–22:00'],
+        ],
+        [
+            'name' => 'Pasila Tripla Garage',
+            'type' => 'commercial',
+            'status' => 'active',
+            'description' => 'Multi-level indoor parking under Mall of Tripla with direct elevator access to the station and shops.',
+            'max_capacity' => 700,
+            'hourly_rate_eur' => 3.20,
+            'latitude' => 60.1987,
+            'longitude' => 24.9338,
+            'amenities' => ['EV Charging', 'CCTV', 'Indoor Parking', 'License Plate Recognition'],
+            'opening_hours' => ['weekdays' => '05:30–00:30', 'weekends' => '07:00–00:30'],
+        ],
+        [
+            'name' => 'Katajanokka Harbor Zone',
+            'type' => 'street',
+            'status' => 'active',
+            'description' => 'Harbor-adjacent parking for ferry passengers and local residents, with clear wayfinding to terminals.',
+            'max_capacity' => 180,
+            'hourly_rate_eur' => 3.00,
+            'latitude' => 60.1653,
+            'longitude' => 24.9682,
+            'amenities' => ['Pay-by-App', 'Disabled Bays', 'Harbor Shuttle Stop Nearby'],
+            'opening_hours' => ['weekdays' => '06:00–23:00', 'weekends' => '06:00–23:00'],
+        ],
+        [
+            'name' => 'Itis Pysäköinti',
+            'type' => 'commercial',
+            'status' => 'active',
+            'description' => 'Covered mall parking in Itäkeskus with family spots, EV charging, and direct access to metro services.',
+            'max_capacity' => 520,
+            'hourly_rate_eur' => 2.80,
+            'latitude' => 60.2097,
+            'longitude' => 25.0823,
+            'amenities' => ['Family Parking', 'EV Charging', 'Indoor Parking', 'Restrooms Nearby'],
+            'opening_hours' => ['weekdays' => '06:00–23:30', 'weekends' => '08:00–23:30'],
+        ],
+    ];
+
+    $insertQuery = $pdo->prepare(
+        'INSERT INTO parking_zones (
+            name,
+            type,
+            status,
+            description,
+            max_capacity,
+            hourly_rate_eur,
+            latitude,
+            longitude,
+            amenities,
+            opening_hours
+        ) VALUES (
+            :name,
+            :type,
+            :status,
+            :description,
+            :max_capacity,
+            :hourly_rate_eur,
+            :latitude,
+            :longitude,
+            :amenities,
+            :opening_hours
+        )'
+    );
+
+    foreach ($seedZones as $zone) {
+        $insertQuery->execute([
+            'name' => $zone['name'],
+            'type' => $zone['type'],
+            'status' => $zone['status'],
+            'description' => $zone['description'],
+            'max_capacity' => $zone['max_capacity'],
+            'hourly_rate_eur' => $zone['hourly_rate_eur'],
+            'latitude' => $zone['latitude'],
+            'longitude' => $zone['longitude'],
+            'amenities' => json_encode($zone['amenities'], JSON_THROW_ON_ERROR),
+            'opening_hours' => json_encode($zone['opening_hours'], JSON_THROW_ON_ERROR),
+        ]);
+    }
+}
+
+function respondJson(array $payload, int $statusCode): void
+{
+    http_response_code($statusCode);
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+    exit;
+}
