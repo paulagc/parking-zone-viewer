@@ -1,7 +1,9 @@
 FROM php:8.3-apache
 
-# SQLite support for PDO
-RUN docker-php-ext-install pdo pdo_sqlite
+# SQLite support for PDO (pdo is built-in; install dev lib then the extension)
+RUN apt-get update && apt-get install -y libsqlite3-dev \
+    && docker-php-ext-install pdo_sqlite \
+    && rm -rf /var/lib/apt/lists/*
 
 # Enable Apache rewrite module for .htaccess rules
 RUN a2enmod rewrite
