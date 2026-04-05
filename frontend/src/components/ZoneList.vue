@@ -14,6 +14,7 @@ const selectedZoneId = ref<number | null>(null)
 const selectedZone = ref<ZoneDetail | null>(null)
 const isDetailLoading = ref(false)
 const detailErrorMessage = ref('')
+const searchTerm = ref('')
 
 function getApiUrl(path: string): string {
   if (apiBaseUrl === '') {
@@ -49,7 +50,12 @@ async function loadZones(): Promise<void> {
   errorMessage.value = ''
 
   try {
-    const response = await fetch(getApiUrl('/api/zones'))
+    const query = searchTerm.value.trim()
+    const zonesPath = query === ''
+      ? '/api/zones'
+      : `/api/zones?q=${encodeURIComponent(query)}`
+
+    const response = await fetch(getApiUrl(zonesPath))
 
     if (!response.ok) {
       throw new Error(`Request failed with status ${response.status}`)
@@ -57,6 +63,12 @@ async function loadZones(): Promise<void> {
 
     const data = (await response.json()) as ZoneSummary[]
     zones.value = data
+
+    if (selectedZoneId.value !== null && !data.some((zone) => zone.id === selectedZoneId.value)) {
+      selectedZoneId.value = null
+      selectedZone.value = null
+    }
+
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Failed to load zones'
   } finally {
@@ -72,6 +84,18 @@ onMounted(() => {
 <template>
   <section class="zone-list">
     <h1>Parking Zones</h1>
+    <form class="search" @submit.prevent="void loadZones()">
+      <label for="zone-search">Search by name</label>
+      <div class="search-row">
+        <input
+          id="zone-search"
+          v-model="searchTerm"
+          type="search"
+          placeholder="e.g. Kamppi"
+        />
+        <button type="submit">Search</button>
+      </div>
+    </form>
     <p v-if="isLoading">Loading zones...</p>
     <p v-else-if="errorMessage" class="error">Error: {{ errorMessage }}</p>
     <ul v-else>
@@ -94,6 +118,7 @@ onMounted(() => {
         </template>
       </li>
     </ul>
+    <p v-if="!isLoading && !errorMessage && zones.length === 0" class="empty">No zones found.</p>
   </section>
 </template>
 
@@ -105,6 +130,33 @@ onMounted(() => {
 
 .zone-list h1 {
   margin-bottom: 1.5rem;
+}
+
+.search {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.search input {
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+}
+
+.search-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+}
+
+button {
+  border: 1px solid #42b883;
+  background: #42b883;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
 }
 
 ul {
@@ -128,5 +180,9 @@ li.selected {
 
 .error {
   color: #b00020;
+}
+
+.empty {
+  color: #666;
 }
 </style>
