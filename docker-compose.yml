@@ -3,9 +3,27 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: parking-zone-viewer
+    container_name: parking-zone-viewer-api
+    env_file:
+      - backend/.env
     ports:
       - "8080:80"
     volumes:
-      - ./:/var/www/html
+      - ./backend:/var/www/html
+    restart: unless-stopped
+
+  frontend:
+    image: node:20-alpine
+    container_name: parking-zone-viewer-frontend
+    working_dir: /app
+    depends_on:
+      - api
+    environment:
+      - VITE_BACKEND_URL=http://localhost:8080
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
     restart: unless-stopped
