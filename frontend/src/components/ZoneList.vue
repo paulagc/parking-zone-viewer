@@ -1,9 +1,8 @@
-
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import type { ZoneSummary } from './ZoneSummary.vue'
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8888'
+const apiBaseUrl = (import.meta.env.VITE_BACKEND_URL ?? '').trim()
 
 const zones = ref<ZoneSummary[]>([])
 const isLoading = ref(true)
@@ -14,7 +13,8 @@ async function loadZones(): Promise<void> {
   errorMessage.value = ''
 
   try {
-    const response = await fetch(`${apiBaseUrl}/api/zones`)
+    const zonesEndpoint = apiBaseUrl === '' ? '/api/zones' : `${apiBaseUrl}/api/zones`
+    const response = await fetch(zonesEndpoint)
 
     if (!response.ok) {
       throw new Error(`Request failed with status ${response.status}`)

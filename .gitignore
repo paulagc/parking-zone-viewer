@@ -1,1 +1,4 @@
 backend/database/*.sqlite
+
+# Local environment variables
+.env
