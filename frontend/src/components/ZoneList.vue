@@ -1,12 +1,7 @@
-<script setup lang="ts">
-type Zone = {
-  id: number
-  name: string
-  type: string
-  status: string
-}
 
-const zones: Zone[] = [
+<script setup lang="ts">
+import type { ZoneSummary } from './ZoneSummary.vue'
+const zones: ZoneSummary[] = [
   {
     id: 1,
     name: 'Kamppi Center',
