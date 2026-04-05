@@ -43,7 +43,10 @@ Frontend
 - When clearing search field reload the whole zone list again.
 - Unselect the detailed zone when searching or clicking out of the zone.
 - Search by just typing in the field (suggestion list) with a delay so it doesn't bloat requests.
-- Style: responsive layout with separate UIs for desktop, mobile or multiple viewpoints.
+- Responsive layout with separate UIs for desktop, mobile or multiple viewpoints.
+- Map pins with navigation to the parkings.
+- Visual "open now" indicator
+- Icons for the amenities
 
 ## AI use
 Using GitHub Copilot on Visual Studio Code for:
