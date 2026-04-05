@@ -7,6 +7,8 @@ require_once __DIR__ . '/database.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
+handleCors();
+
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $path = getRequestPath();
 
@@ -24,22 +26,22 @@ if (preg_match('#^/api/zones/?$#', $path)) {
     $q = trim((string) ($_GET['q'] ?? ''));
 
     if ($q !== '') {
-        $summaryQuery = $pdo->prepare(
+        $listQuery = $pdo->prepare(
             "SELECT id, name, type, status
              FROM parking_zones
              WHERE name LIKE :search COLLATE NOCASE
              ORDER BY id ASC"
         );
-        $summaryQuery->execute(['search' => '%' . $q . '%']);
+        $listQuery->execute(['search' => '%' . $q . '%']);
     } else {
-        $summaryQuery = $pdo->query(
+        $listQuery = $pdo->query(
             "SELECT id, name, type, status
              FROM parking_zones
              ORDER BY id ASC"
         );
     }
 
-    $zones = $summaryQuery->fetchAll(PDO::FETCH_ASSOC);
+    $zones = $listQuery->fetchAll(PDO::FETCH_ASSOC);
 
     respondJson($zones, 200);
 }
@@ -88,4 +90,18 @@ function respondJson(array $payload, int $statusCode): void
     http_response_code($statusCode);
     echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
     exit;
+}
+
+function handleCors(): void
+{
+    header('Access-Control-Allow-Origin: http://localhost:5173');
+    header('Access-Control-Allow-Methods: GET, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+
+    if ($method === 'OPTIONS') {
+        http_response_code(204);
+        exit;
+    }
 }
